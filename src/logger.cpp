@@ -10,7 +10,11 @@ namespace llt_memoryPool
         }
         return timeStr;
     }
-    void Logger::log(LogLevel level, const std::string& message){
+    void Logger::log(LogLevel level, const std::string& message, bool isThread){
+        if (!shouldLog(level)) {
+            return;
+        }
+        
         while(logFileLock.test_and_set(std::memory_order_acquire)){
             std::this_thread::yield();
         }
@@ -34,7 +38,14 @@ namespace llt_memoryPool
                 levelStr = "DEBUG";
                 break;
         }
-        std::string logMessage =" [" + levelStr + "] " + " : [" + getCurrentTime() + "] : " + message + "\n";
+        std::string threadId = "";
+        if(isThread){
+           std::stringstream ss;
+           ss << "ThreadID:[" << std::this_thread::get_id() << "] ";
+           threadId = ss.str();
+        }
+
+        std::string logMessage =" [" + levelStr + "] " + " : [" + getCurrentTime() + "] : " + (isThread ? threadId : "") + message + "\n";
         std::cout << logMessage;
         logFile << logMessage;
         logFile.flush();

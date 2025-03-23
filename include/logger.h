@@ -5,13 +5,14 @@
 #include <ctime>
 #include <atomic>
 #include <thread>
+#include <sstream>
 namespace llt_memoryPool
 {
     enum class LogLevel{
-        INFO,
-        WARN,
         ERROR,
-        DEBUG
+        WARN,
+        INFO,
+        DEBUG,
     };
 
     class Logger
@@ -22,6 +23,7 @@ namespace llt_memoryPool
             std::string logFileName;
             std::string logFileTime;
             std::atomic_flag logFileLock;
+            LogLevel minLogLevel{LogLevel::DEBUG}; // 默认输出所有级别的日志
         private:
             std::string getCurrentTime();
         public:
@@ -44,6 +46,48 @@ namespace llt_memoryPool
             ~Logger(){
                 logFile.close();
             }
-            void log(LogLevel level, const std::string& message);
+            
+            // 设置最小日志级别
+            void setMinLogLevel(LogLevel level) {
+                minLogLevel = level;
+            }
+            
+            // 获取当前最小日志级别
+            LogLevel getMinLogLevel() const {
+                return minLogLevel;
+            }
+            
+            // 判断给定级别是否应该被记录
+            bool shouldLog(LogLevel level) const {
+                // 注意：LogLevel的定义中，Error=0, Warn=1, Info=2, Debug=3
+                // 所以较小的值表示更高的优先级
+                return level <= minLogLevel;
+            }
+            
+            void log(LogLevel level, const std::string& message, bool isThread = true);
+            
+            void info(const std::string& message, bool isThread = true) {
+                if (shouldLog(LogLevel::INFO)) {
+                    log(LogLevel::INFO, message, isThread);
+                }
+            }
+            
+            void warn(const std::string& message, bool isThread = true) {
+                if (shouldLog(LogLevel::WARN)) {
+                    log(LogLevel::WARN, message, isThread);
+                }
+            }
+            
+            void error(const std::string& message, bool isThread = true) {
+                if (shouldLog(LogLevel::ERROR)) {
+                    log(LogLevel::ERROR, message, isThread);
+                }
+            }
+            
+            void debug(const std::string& message, bool isThread = true) {
+                if (shouldLog(LogLevel::DEBUG)) {
+                    log(LogLevel::DEBUG, message, isThread);
+                }
+            }
     };
 }

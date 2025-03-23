@@ -1,8 +1,8 @@
 #pragma once
 #include <cstddef>
-#include <atomic>
 #include <array>
 #include <cstdlib>
+#include "logger.h"
 namespace llt_memoryPool 
 {
 // 对齐数和大小定义

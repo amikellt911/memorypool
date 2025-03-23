@@ -1,5 +1,6 @@
 #pragma once
 #include "Common.h"
+#include "logger.h"
 #include <mutex>
 
 namespace llt_memoryPool
@@ -11,6 +12,7 @@ public:
     static CentralCache& getInstance()
     {
         static CentralCache instance;
+        Logger::getInstance().debug("[CentralCache:getInstance] 获取中心缓存实例");
         return instance;
     }
     //之前没有batchNum，只能自适应获得合适大小
@@ -21,6 +23,7 @@ private:
     // 相互是还所有原子指针为nullptr
     CentralCache()
     {
+        Logger::getInstance().info("[CentralCache:构造函数] 创建中心缓存实例");
         for (auto& ptr : centralFreeList_)
         {
             ptr.store(nullptr, std::memory_order_relaxed);

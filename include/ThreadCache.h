@@ -1,5 +1,6 @@
 #pragma once
 #include "Common.h"
+#include "logger.h"
 
 namespace llt_memoryPool 
 {
@@ -11,6 +12,7 @@ public:
     static ThreadCache* getInstance()
     {
         static thread_local ThreadCache instance;
+        Logger::getInstance().debug("[ThreadCache:getInstance] 获取线程本地缓存实例");
         return &instance;
     }
 
@@ -18,7 +20,15 @@ public:
     void deallocate(void* ptr, size_t size);
 private:
     //之前不是default，是将freelist置nullptr和freelistSize置0
-    ThreadCache() = default;
+    ThreadCache() {
+        Logger::getInstance().debug("[ThreadCache:构造函数] 创建新的线程缓存实例");
+        // 初始化数组
+        for (size_t i = 0; i < FREE_LIST_SIZE; ++i) {
+            freeList_[i] = nullptr;
+            freeListSize_[i] = 0;
+        }
+    }
+    
     // 从中心缓存获取内存
     void* fetchFromCentralCache(size_t index);
     // 归还内存到中心缓存

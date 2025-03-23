@@ -1,5 +1,6 @@
 #pragma once
 #include "Common.h"
+#include "logger.h"
 #include <map>
 #include <mutex>
 
@@ -14,6 +15,7 @@ public:
     static PageCache& getInstance()
     {
         static PageCache instance;
+        Logger::getInstance().debug("[PageCache:getInstance] 获取页缓存实例");
         return instance;
     }
 
@@ -24,7 +26,9 @@ public:
     void deallocateSpan(void* ptr, size_t numPages);
 
 private:
-    PageCache() = default;
+    PageCache() {
+        Logger::getInstance().info("[PageCache:构造函数] 创建页缓存实例");
+    }
 
     // 向系统申请内存
     void* systemAlloc(size_t numPages);
