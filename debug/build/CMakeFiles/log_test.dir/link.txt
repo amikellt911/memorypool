@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/log_test.dir/src/CentralCache.cpp.o CMakeFiles/log_test.dir/src/PageCache.cpp.o CMakeFiles/log_test.dir/src/ThreadCache.cpp.o CMakeFiles/log_test.dir/src/logger.cpp.o CMakeFiles/log_test.dir/tests/LoggingTest.cpp.o -o log_test 

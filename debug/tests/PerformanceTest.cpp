@@ -5,6 +5,8 @@
 #include <random>
 #include <iomanip>
 #include <thread>
+#include <algorithm>
+#include <string>
 
 using namespace llt_memoryPool;
 using namespace std::chrono;
@@ -34,7 +36,63 @@ private:
         double systemTime{0.0};
         size_t totalAllocs{0};
         size_t totalBytes{0};
+        
+        // 计算性能比率
+        double speedupRatio() const {
+            if (systemTime <= 0.0) return 0.0;
+            return systemTime / memPoolTime;
+        }
+        
+        // 计算百分比提升
+        double percentImprovement() const {
+            if (systemTime <= 0.0) return 0.0;
+            return (systemTime - memPoolTime) / systemTime * 100.0;
+        }
     };
+
+    // 保存所有测试结果
+    static std::vector<std::pair<std::string, TestStats>> allResults;
+
+    // 输出结果，包括性能比率
+    static void printResults(const std::string& testName, const TestStats& stats) {
+        std::cout << "\nTest: " << testName << std::endl;
+        std::cout << "-------------------------" << std::endl;
+        std::cout << "Memory Pool: " << std::fixed << std::setprecision(3) 
+                  << stats.memPoolTime << " ms" << std::endl;
+        std::cout << "System Alloc: " << std::fixed << std::setprecision(3) 
+                  << stats.systemTime << " ms" << std::endl;
+        
+        double ratio = stats.speedupRatio();
+        double percent = stats.percentImprovement();
+        
+        std::cout << "Speedup Ratio: " << std::fixed << std::setprecision(2) 
+                  << ratio << "x (";
+        
+        if (percent > 0) {
+            std::cout << "+" << std::fixed << std::setprecision(2) << percent << "%)";
+        } else {
+            std::cout << std::fixed << std::setprecision(2) << percent << "%)";
+        }
+        std::cout << std::endl;
+        
+        // 可视化比较
+        const int barWidth = 50;
+        int memPoolBar = static_cast<int>(barWidth * stats.memPoolTime / std::max(stats.memPoolTime, stats.systemTime));
+        int systemBar = static_cast<int>(barWidth * stats.systemTime / std::max(stats.memPoolTime, stats.systemTime));
+        
+        std::cout << "Memory Pool: [";
+        for (int i = 0; i < memPoolBar; ++i) std::cout << "=";
+        for (int i = memPoolBar; i < barWidth; ++i) std::cout << " ";
+        std::cout << "]" << std::endl;
+        
+        std::cout << "System Alloc: [";
+        for (int i = 0; i < systemBar; ++i) std::cout << "=";
+        for (int i = systemBar; i < barWidth; ++i) std::cout << " ";
+        std::cout << "]" << std::endl;
+        
+        // 存储结果用于最终汇总
+        allResults.push_back({testName, stats});
+    }
 
 public:
     // 1. 系统预热
@@ -71,6 +129,10 @@ public:
         std::cout << "\nTesting small allocations (" << NUM_ALLOCS << " allocations of " 
                   << SMALL_SIZE << " bytes):" << std::endl;
         
+        TestStats stats;
+        stats.totalAllocs = NUM_ALLOCS;
+        stats.totalBytes = NUM_ALLOCS * SMALL_SIZE;
+        
         // 测试内存池
         {
             Timer t;
@@ -94,8 +156,7 @@ public:
                 MemoryPool::deallocate(ptr, SMALL_SIZE);
             }
             
-            std::cout << "Memory Pool: " << std::fixed << std::setprecision(3) 
-                      << t.elapsed() << " ms" << std::endl;
+            stats.memPoolTime = t.elapsed();
         }
         
         // 测试new/delete
@@ -120,9 +181,10 @@ public:
                 delete[] static_cast<char*>(ptr);
             }
             
-            std::cout << "New/Delete: " << std::fixed << std::setprecision(3) 
-                      << t.elapsed() << " ms" << std::endl;
+            stats.systemTime = t.elapsed();
         }
+        
+        printResults("Small Allocation", stats);
     }
     
     // 3. 多线程测试
@@ -135,6 +197,10 @@ public:
         std::cout << "\nTesting multi-threaded allocations (" << NUM_THREADS 
                   << " threads, " << ALLOCS_PER_THREAD << " allocations each):" 
                   << std::endl;
+        
+        TestStats stats;
+        stats.totalAllocs = NUM_THREADS * ALLOCS_PER_THREAD;
+        stats.totalBytes = NUM_THREADS * ALLOCS_PER_THREAD * (MAX_SIZE / 2); // 平均大小
         
         auto threadFunc = [](bool useMemPool) 
         {
@@ -194,8 +260,7 @@ public:
                 thread.join();
             }
             
-            std::cout << "Memory Pool: " << std::fixed << std::setprecision(3) 
-                      << t.elapsed() << " ms" << std::endl;
+            stats.memPoolTime = t.elapsed();
         }
         
         // 测试new/delete
@@ -213,9 +278,10 @@ public:
                 thread.join();
             }
             
-            std::cout << "New/Delete: " << std::fixed << std::setprecision(3) 
-                      << t.elapsed() << " ms" << std::endl;
+            stats.systemTime = t.elapsed();
         }
+        
+        printResults("Multi-Threaded Allocation", stats);
     }
     
     // 4. 混合大小测试
@@ -226,6 +292,10 @@ public:
         
         std::cout << "\nTesting mixed size allocations (" << NUM_ALLOCS 
                   << " allocations):" << std::endl;
+        
+        TestStats stats;
+        stats.totalAllocs = NUM_ALLOCS;
+        stats.totalBytes = NUM_ALLOCS * 500; // 假设平均大小为500字节
         
         // 测试内存池
         {
@@ -256,8 +326,7 @@ public:
                 MemoryPool::deallocate(ptr, size);
             }
             
-            std::cout << "Memory Pool: " << std::fixed << std::setprecision(3) 
-                      << t.elapsed() << " ms" << std::endl;
+            stats.memPoolTime = t.elapsed();
         }
         
         // 测试new/delete
@@ -288,11 +357,77 @@ public:
                 delete[] static_cast<char*>(ptr);
             }
             
-            std::cout << "New/Delete: " << std::fixed << std::setprecision(3) 
-                      << t.elapsed() << " ms" << std::endl;
+            stats.systemTime = t.elapsed();
+        }
+        
+        printResults("Mixed Size Allocation", stats);
+    }
+    
+    // 打印所有测试的汇总结果
+    static void printSummary() {
+        std::cout << "\n====================================" << std::endl;
+        std::cout << "      PERFORMANCE TEST SUMMARY      " << std::endl;
+        std::cout << "====================================" << std::endl;
+        
+        // 计算总体性能指标
+        double totalMemTime = 0.0;
+        double totalSysTime = 0.0;
+        size_t totalAllocs = 0;
+        size_t totalBytes = 0;
+        
+        std::cout << std::left << std::setw(30) << "Test Name" 
+                  << std::setw(15) << "Mem Pool(ms)" 
+                  << std::setw(15) << "System(ms)" 
+                  << std::setw(15) << "Speedup" 
+                  << std::setw(15) << "Improvement" << std::endl;
+        std::cout << std::string(90, '-') << std::endl;
+        
+        for (const auto& [name, stats] : allResults) {
+            double ratio = stats.speedupRatio();
+            double percent = stats.percentImprovement();
+            
+            std::cout << std::left << std::setw(30) << name 
+                      << std::setw(15) << std::fixed << std::setprecision(3) << stats.memPoolTime
+                      << std::setw(15) << std::fixed << std::setprecision(3) << stats.systemTime
+                      << std::setw(15) << std::fixed << std::setprecision(2) << ratio << "x"
+                      << std::setw(15) << std::fixed << std::setprecision(2) << percent << "%" 
+                      << std::endl;
+            
+            totalMemTime += stats.memPoolTime;
+            totalSysTime += stats.systemTime;
+            totalAllocs += stats.totalAllocs;
+            totalBytes += stats.totalBytes;
+        }
+        
+        std::cout << std::string(90, '-') << std::endl;
+        double overallRatio = (totalSysTime > 0) ? (totalSysTime / totalMemTime) : 0;
+        double overallPercent = (totalSysTime > 0) ? ((totalSysTime - totalMemTime) / totalSysTime * 100.0) : 0;
+        
+        std::cout << std::left << std::setw(30) << "OVERALL" 
+                  << std::setw(15) << std::fixed << std::setprecision(3) << totalMemTime
+                  << std::setw(15) << std::fixed << std::setprecision(3) << totalSysTime
+                  << std::setw(15) << std::fixed << std::setprecision(2) << overallRatio << "x"
+                  << std::setw(15) << std::fixed << std::setprecision(2) << overallPercent << "%" 
+                  << std::endl;
+                  
+        std::cout << "\nTotal Allocations: " << totalAllocs << std::endl;
+        std::cout << "Total Memory: " << (totalBytes / (1024.0 * 1024.0)) << " MB" << std::endl;
+        
+        std::cout << "\nConclusion: ";
+        if (overallRatio > 1.5) {
+            std::cout << "Memory pool shows SIGNIFICANT performance improvement" << std::endl;
+        } else if (overallRatio > 1.1) {
+            std::cout << "Memory pool shows MODERATE performance improvement" << std::endl;
+        } else if (overallRatio > 1.0) {
+            std::cout << "Memory pool shows SLIGHT performance improvement" << std::endl;
+        } else {
+            std::cout << "Memory pool shows NO performance improvement" << std::endl;
         }
     }
 };
+
+// 初始化静态成员
+std::vector<std::pair<std::string, PerformanceTest::TestStats>> PerformanceTest::allResults;
 
 int main() 
 {
@@ -308,6 +443,9 @@ int main()
     PerformanceTest::testSmallAllocation();
     PerformanceTest::testMultiThreaded();
     PerformanceTest::testMixedSizes();
+    
+    // 打印汇总结果
+    PerformanceTest::printSummary();
     
     return 0;
 }

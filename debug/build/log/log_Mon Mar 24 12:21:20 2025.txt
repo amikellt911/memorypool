@@ -1,2 +1,0 @@
- [INFO]  : [Mon Mar 24 12:21:20 2025] : ThreadID:[140666602235712] [CentralCache:构造函数] 创建中心缓存实例
- [INFO]  : [Mon Mar 24 12:21:20 2025] : ThreadID:[140666602235712] [PageCache:构造函数] 创建页缓存实例

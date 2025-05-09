@@ -1,4 +1,0 @@
- [INFO]  : [Sun Mar 23 22:50:27 2025] : ThreadID:[139964056610624] 这是INFO级别日志
- [WARN]  : [Sun Mar 23 22:50:27 2025] : ThreadID:[139964056610624] 这是WARN级别日志
- [ERROR]  : [Sun Mar 23 22:50:27 2025] : ThreadID:[139964056610624] 这是ERROR级别日志
- [ERROR]  : [Sun Mar 23 22:50:27 2025] : ThreadID:[139964056610624] 【级别过滤】ERROR级别消息应该显示
