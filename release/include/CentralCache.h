@@ -11,37 +11,25 @@ public:
     static CentralCache& getInstance()
     {
         static CentralCache instance;
-        //LogDebug("[CentralCache:getInstance] 获取中心缓存实例");
         return instance;
     }
     //之前没有batchNum，只能自适应获得合适大小
-    void* fetchRange(size_t index, size_t batchNum);
-    void returnRange(void* start, size_t size, size_t bytes);
+    //*&，指针的引用，不需要写二级指针了。
+    size_t fetchRange(void*& start,void*& end,size_t index, size_t batchNum);
+    void releaseListToSpans(void* start, size_t size,size_t bytes);
+    CentralCache(const CentralCache&)=delete;
+    CentralCache& operator=(const CentralCache&)=delete;
 
 private:
     // 相互是还所有原子指针为nullptr
-    CentralCache()
-    {
-        //LogInfo("[CentralCache:构造函数] 创建中心缓存实例");
-        for (auto& ptr : centralFreeList_)
-        {
-            ptr.store(nullptr, std::memory_order_relaxed);
-        }
-        // 初始化所有锁
-        for (auto& lock : locks_)
-        {
-            lock.clear();
-        }
-    }
-    // 从页缓存获取内存
-    void* fetchFromPageCache(size_t size);
+    CentralCache()=default;
+    ~CentralCache();
+
 
 private:
     // 中心缓存的自由链表
-    std::array<std::atomic<void*>, FREE_LIST_SIZE> centralFreeList_;
-
-    // 用于同步的自旋锁
-    std::array<std::atomic_flag, FREE_LIST_SIZE> locks_;
+    //mutex是不可拷贝的，而array的默认构造又必须要拷贝，所以有问题，所以可以从指针间接持有
+    std::array<SpanList*, FREE_LIST_SIZE> span_lists_;
 };
 
 } // namespace llt_memoryPool

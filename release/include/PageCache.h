@@ -1,6 +1,6 @@
 #pragma once
 #include "Common.h"
-#include <map>
+#include <unordered_map>
 #include <mutex>
 
 namespace llt_memoryPool
@@ -9,40 +9,36 @@ namespace llt_memoryPool
 class PageCache
 {
 public:
-    static const size_t PAGE_SIZE = 4096; // 4K页大小
-
     static PageCache& getInstance()
     {
         static PageCache instance;
         //LogDebug("[PageCache:getInstance] 获取页缓存实例");
         return instance;
     }
+    PageCache(const PageCache&)=delete;
+    PageCache& operator=(const PageCache&)=delete;
 
     // 分配指定页数的span
-    void* allocateSpan(size_t numPages);
+    Span* allocateSpan(size_t numPages);
 
     // 释放span
-    void deallocateSpan(void* ptr, size_t numPages);
+    void deallocateSpan(Span* ptr);
+
+    static void* getPageAddress(Span* span);
+
+    Span* mapAddressToSpan(void* ptr);
 
 private:
-    PageCache() {
-        //LogInfo("[PageCache:构造函数] 创建页缓存实例");
-    }
-
-    // 向系统申请内存
-    void* systemAlloc(size_t numPages);
+    PageCache()=default;
+    ~PageCache()=default;
+    //向操作系统申请新一块内存
+    Span* newSpan(size_t num_pages);
+    //void mergeSpan(Span* span);
+    //Span* splitSpan(Span* span, size_t num_pages);
 private:
-    struct Span
-    {
-        void*  pageAddr; // 页起始地址
-        size_t numPages; // 页数
-        Span*  next;     // 链表指针
-    };
-
-    // 按页数管理空闲span，不同页数对应不同Span链表
-    std::map<size_t, Span*> freeSpans_;
-    // 页号到span的映射，用于回收
-    std::map<void*, Span*> spanMap_;
+    static const size_t MaxPages = 64; // 256/4
+    SpanList free_lists_[MaxPages];
+    std::unordered_map<size_t, Span*> span_map_;
     std::mutex mutex_;
 };
 
