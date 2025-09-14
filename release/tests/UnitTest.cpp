@@ -19,17 +19,17 @@ void testBasicAllocation()
     void* ptr1 = MemoryPool::allocate(8);
     assert(ptr1 != nullptr);
     MemoryPool::deallocate(ptr1, 8);
-
+    std::cout<<"allocate 8 bytes"<<std::endl;
     // 测试中等大小内存分配
     void* ptr2 = MemoryPool::allocate(1024);
     assert(ptr2 != nullptr);
     MemoryPool::deallocate(ptr2, 1024);
-
+    std::cout<<"allocate 1024 bytes"<<std::endl;
     // 测试大内存分配（超过MAX_BYTES）
     void* ptr3 = MemoryPool::allocate(1024 * 1024);
     assert(ptr3 != nullptr);
     MemoryPool::deallocate(ptr3, 1024 * 1024);
-
+    std::cout<<"allocate 1024 * 1024 bytes"<<std::endl;
     std::cout << "Basic allocation test passed!" << std::endl;
 }
 
@@ -184,6 +184,9 @@ void testStress()
 
 int main() 
 {
+
+    // std::cout << "sizeof(size_t) = " << sizeof(size_t) << " bytes" << std::endl;
+    // std::cout << "sizeof(void*) = " << sizeof(void*) << " bytes" << std::endl;
     try 
     {
         std::cout << "Starting memory pool tests..." << std::endl;

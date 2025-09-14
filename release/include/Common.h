@@ -89,7 +89,8 @@ public:
 };
 
 struct Span{
-    size_t page_id;//开始页号
+    //size_t page_id;//开始页号
+    void* start_address; 
     size_t num_pages;
 
     Span* next;
@@ -122,7 +123,8 @@ class SpanList{
     SpanList(){
         head_=new Span;
         head_->next=head_;
-        head_->prev=head_;
+        head_->prev=head_;  
+        size_=0;
     }
     ~SpanList()
     {
@@ -172,13 +174,8 @@ class SpanList{
         span->prev = nullptr;
         size_--;
     }
-    std::mutex& getMutex()
-    {
-        return lock_;
-    }
     private:
         Span* head_;
-        std::mutex lock_;
         size_t size_=0;
 };
 

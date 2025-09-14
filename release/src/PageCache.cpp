@@ -8,9 +8,7 @@ namespace llt_memoryPool
     {
         if(span==nullptr)
         return nullptr;
-        size_t page_id=span->page_id;
-        uintptr_t address=reinterpret_cast<uintptr_t>(span)<<PageShift;
-        return reinterpret_cast<void*>(address);
+        return span->start_address;
     }
 
     Span* PageCache::mapAddressToSpan(void* ptr)
@@ -59,13 +57,16 @@ namespace llt_memoryPool
         if(span->num_pages>=numPages)
         {
             Span* remain_span=new Span();
+            char* address_=static_cast<char*>(span->start_address);
             remain_span->num_pages=span->num_pages-numPages;
-            remain_span->page_id=span->page_id+numPages;
+            remain_span->start_address=address_+numPages*PAGE_SIZE;
             span->num_pages=numPages;
+            size_t start_pages=AddressToPageID(span->start_address);
             for(size_t i=0;i<remain_span->num_pages;i++)
             {
-                span_map_[remain_span->page_id+i]=remain_span;
+                span_map_[start_pages+numPages+i]=remain_span;
             }
+            if(remain_span->num_pages>0)
             free_lists_[remain_span->num_pages-1].push_front(remain_span);
         }
         return span;
@@ -73,7 +74,6 @@ namespace llt_memoryPool
 
     Span* PageCache::newSpan(size_t numPages)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
         size_t size_alloc=std::max(numPages,MinSystemAllocPages)*PAGE_SIZE;
         void* ptr=mmap(nullptr,size_alloc,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
         if(ptr==MAP_FAILED)
@@ -84,7 +84,7 @@ namespace llt_memoryPool
         size_t start_page=reinterpret_cast<size_t>(ptr)>>PageShift;
         size_t actual_pages=size_alloc>>PageShift;
 
-        new_span->page_id=start_page;
+        new_span->start_address=ptr;
         new_span->num_pages=actual_pages;
         new_span->location=false;
         for(size_t i=0;i<actual_pages;i++)
@@ -97,12 +97,15 @@ namespace llt_memoryPool
     void PageCache::deallocateSpan(Span* ptr)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        size_t prev_id=ptr->page_id-1;
+        size_t current_id=AddressToPageID(ptr->start_address);
+        size_t prev_id=current_id-1;
         auto it=span_map_.find(prev_id);
+        char* current_address=static_cast<char*>(ptr->start_address);
         if(it!=span_map_.end())
         {
             Span* prev_span=it->second;
-            if(prev_span->location==false&&prev_span->page_id+prev_span->num_pages==ptr->page_id)
+            char* prev_address=static_cast<char*>(prev_span->start_address);
+            if(prev_span->location==false&&prev_address+prev_span->num_pages*PAGE_SIZE==current_address)
             {
                 free_lists_[prev_span->num_pages-1].erase(prev_span);
                 //归还的时候，它还不在空闲列表中
@@ -110,24 +113,27 @@ namespace llt_memoryPool
                 prev_span->num_pages+=ptr->num_pages;
                 for(size_t i=0;i<ptr->num_pages;i++)
                 {
-                    span_map_[ptr->page_id+i]=prev_span;
+                    span_map_[current_id+i]=prev_span;
                 }
                 delete ptr;
                 ptr=prev_span;
             }
         }
-        size_t next_id=ptr->page_id+ptr->num_pages;
+        current_address=static_cast<char*>(ptr->start_address);
+        current_id=AddressToPageID(ptr->start_address);
+        size_t next_id=current_id+ptr->num_pages;
         it=span_map_.find(next_id);
         if(it!=span_map_.end())
         { 
             Span* next_span=it->second;
-            if(next_span->location==false&&next_span->page_id==ptr->page_id+ptr->num_pages)
+            char* next_address=static_cast<char*>(next_span->start_address);
+            if(next_span->location==false&&next_address==current_address+ptr->num_pages*PAGE_SIZE)
             {
                 free_lists_[next_span->num_pages-1].erase(next_span);
                 ptr->num_pages+=next_span->num_pages;
                 for(size_t i=0;i<next_span->num_pages;i++)
                 {
-                    span_map_[next_span->page_id+i]=ptr;
+                    span_map_[next_id+i]=ptr;
                 }
                 delete next_span;
             }
@@ -138,5 +144,6 @@ namespace llt_memoryPool
         ptr->size_class=0;
         free_lists_[ptr->num_pages-1].push_front(ptr);
     } 
+    
     
 } // namespace llt_memoryPool

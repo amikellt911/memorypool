@@ -57,8 +57,12 @@ void ThreadCache::deallocate(void* ptr, size_t size)
     freeListSize_[index]++; // 增加对应大小类的自由链表大小
 
     // 判断是否需要将部分内存回收给中心缓存
-    if (freeListSize_[index]>SizeClass::getSize(index))
-    {
+    //bug:getsize是这个index的字节大小，而不是尺寸
+    // if (freeListSize_[index]>SizeClass::getSize(index))
+    // {
+    //     releaseExcessMemory(index);
+    // }
+    if(freeListSize_[index]>SizeClass::getBatchNum(SizeClass::getSize(index))*2){
         releaseExcessMemory(index);
     }
 }
@@ -73,6 +77,7 @@ void ThreadCache::releaseExcessMemory(size_t index)
     //因为我们只要走到了num_to_release的位置，我们就可以分割了
     for(size_t i=0;i<num_to_release-1;i++)
     {
+        std::cout<<"freeListSize["<<index<<"]"<<freeListSize_[index]<<std::endl;
         end=*reinterpret_cast<void**>(end);
     }
     freeList_[index]=*reinterpret_cast<void**>(end);
@@ -112,7 +117,7 @@ void ThreadCache::fetchFromCentralCache(size_t index)
 
     // 从中心缓存批量获取内存
     size_t fetchNum=CentralCache::getInstance().fetchRange(start,end,index, batchNum);
-    
+    std::cout<<"fetchNum:"<<fetchNum<<std::endl;
     if (fetchNum==0) {
         return;
     }

@@ -27,9 +27,9 @@ CentralCache::~CentralCache()
 
 size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t batchNum)
 {
+    std::lock_guard<std::mutex> lock(span_lists_mutex_[index]);
     size_t fetchNum = 0;
     SpanList& sp=*span_lists_[index];
-    std::lock_guard<std::mutex> lock(sp.getMutex());
     Span* target_span=nullptr;
     for(Span* span=sp.begin();span!=sp.end();span=span->next)
     {
@@ -43,6 +43,7 @@ size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t bat
     {
         size_t num_pages=SizeClass::getPages(index);
         target_span = PageCache::getInstance().allocateSpan(num_pages);
+        target_span->size_class=index;
         if(target_span==nullptr)
         {
             return 0;
@@ -51,20 +52,19 @@ size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t bat
         size_t object_size=SizeClass::getSize(index);
         size_t nums_object=target_span->getTotalObjects();
         void* head=nullptr;
-        for(int i=0;i<nums_object;++i)
+        for(size_t i=0;i<nums_object;++i)
         {
             void* current=ptr+i*object_size;
             *reinterpret_cast<void**>(current)=head;
             head=current;
         }
         target_span->objects=head;
-        target_span->size_class=index;
         sp.push_front(target_span);
     }
     fetchNum=std::min(target_span->getFreeObjects(),batchNum);
     start=target_span->objects;
     end=start;
-    for(int i=0;i<fetchNum-1;++i)
+    for(size_t i=0;i<fetchNum-1;++i)
     {
         end=*reinterpret_cast<void**>(end);
     }
@@ -82,14 +82,15 @@ size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t bat
 
 void CentralCache::releaseListToSpans(void* start, size_t size, size_t bytes)
 {
-    SpanList& sp=*span_lists_[SizeClass::getIndex(bytes)];
-    std::lock_guard<std::mutex> lock(sp.getMutex());
-
+    int index=SizeClass::getIndex(bytes);
+    std::lock_guard<std::mutex> lock(span_lists_mutex_[index]);
+    SpanList& sp=*span_lists_[index];
     void* current=start;
     while(current!=nullptr)
     {
         void* next=*reinterpret_cast<void**>(current);
         Span* span=PageCache::getInstance().mapAddressToSpan(current);
+        assert(index==span->size_class);
         if(span==nullptr)
         {
             return;

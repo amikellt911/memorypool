@@ -22,7 +22,8 @@ public:
 
 private:
     // 相互是还所有原子指针为nullptr
-    CentralCache()=default;
+    //=default，default会默认nullptr
+    CentralCache();
     ~CentralCache();
 
 
@@ -30,6 +31,7 @@ private:
     // 中心缓存的自由链表
     //mutex是不可拷贝的，而array的默认构造又必须要拷贝，所以有问题，所以可以从指针间接持有
     std::array<SpanList*, FREE_LIST_SIZE> span_lists_;
+    std::array<std::mutex, FREE_LIST_SIZE> span_lists_mutex_;
 };
 
 } // namespace llt_memoryPool
