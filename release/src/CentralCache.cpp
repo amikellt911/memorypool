@@ -2,6 +2,7 @@
 #include "../include/PageCache.h"
 #include <cassert>
 #include <thread>
+#include <vector>
 
 namespace llt_memoryPool
 {
@@ -66,10 +67,28 @@ size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t bat
     end=start;
     for(size_t i=0;i<fetchNum-1;++i)
     {
+        if (end == nullptr) {
+            // The list is shorter than fetchNum. This indicates a likely bug in span's
+            // object tracking. To prevent a crash, we must stop here and return what we have.
+            // The list is now start -> ... -> end (which is the last valid node)
+            *reinterpret_cast<void**>(start) = nullptr; // Properly terminate the list we are returning
+            fetchNum = i + 1; // We actually fetched i+1 items
+            target_span->objects = nullptr; // The span's free list is now empty
+            target_span->use_count += fetchNum;
+            target_span->location=true;
+            return fetchNum;
+        }
         end=*reinterpret_cast<void**>(end);
     }
-    target_span->objects=*reinterpret_cast<void**>(end);
-    *reinterpret_cast<void**>(end)=nullptr;
+ 
+    if (end != nullptr) {
+        target_span->objects=*reinterpret_cast<void**>(end);
+        *reinterpret_cast<void**>(end)=nullptr;
+    } else {
+        // This can happen if the list had exactly fetchNum-1 items.
+        target_span->objects = nullptr;
+    }
+
     target_span->use_count+=fetchNum;
     target_span->location=true;
     if(target_span->isFull())

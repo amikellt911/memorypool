@@ -75,11 +75,21 @@ void ThreadCache::releaseExcessMemory(size_t index)
     void* end=start;
     //-1是因为我们要走到num_to_release的位置，而不是下一个位置
     //因为我们只要走到了num_to_release的位置，我们就可以分割了
-    for(size_t i=0;i<num_to_release-1;i++)
+    for(size_t i=0;i<num_to_release-1;++i)
     {
-        std::cout<<"freeListSize["<<index<<"]"<<freeListSize_[index]<<std::endl;
+        if (end == nullptr) {
+            // List is shorter than expected, which points to a bug in size tracking.
+            // Abort releasing memory to prevent a crash.
+            return;
+        }
         end=*reinterpret_cast<void**>(end);
     }
+
+    if (end == nullptr) {
+        // This can happen if the list had exactly num_to_release - 1 items.
+        return;
+    }
+
     freeList_[index]=*reinterpret_cast<void**>(end);
     *reinterpret_cast<void**>(end)=nullptr;
     freeListSize_[index]-=num_to_release;
@@ -117,7 +127,7 @@ void ThreadCache::fetchFromCentralCache(size_t index)
 
     // 从中心缓存批量获取内存
     size_t fetchNum=CentralCache::getInstance().fetchRange(start,end,index, batchNum);
-    std::cout<<"fetchNum:"<<fetchNum<<std::endl;
+    //std::cout<<"fetchNum:"<<fetchNum<<std::endl;
     if (fetchNum==0) {
         return;
     }

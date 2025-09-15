@@ -133,23 +133,24 @@ void testEdgeCases()
     void* ptr1 = MemoryPool::allocate(0);
     assert(ptr1 != nullptr);
     MemoryPool::deallocate(ptr1, 0);
-    
+    std::cout<<"allocate 0 bytes"<<std::endl;
+
     // 测试最小对齐大小
     void* ptr2 = MemoryPool::allocate(1);
     assert(ptr2 != nullptr);
     assert((reinterpret_cast<uintptr_t>(ptr2) & (ALIGNMENT - 1)) == 0);
     MemoryPool::deallocate(ptr2, 1);
-    
+    std::cout<<"allocate 1 bytes"<<std::endl;
     // 测试最大大小边界
     void* ptr3 = MemoryPool::allocate(MAX_BYTES);
     assert(ptr3 != nullptr);
     MemoryPool::deallocate(ptr3, MAX_BYTES);
-    
+    std::cout<<"allocate MAX_BYTES bytes"<<std::endl;
     // 测试超过最大大小
     void* ptr4 = MemoryPool::allocate(MAX_BYTES + 1);
     assert(ptr4 != nullptr);
     MemoryPool::deallocate(ptr4, MAX_BYTES + 1);
-    
+    std::cout<<"allocate MAX_BYTES + 1 bytes"<<std::endl;
     std::cout << "Edge cases test passed!" << std::endl;
 }
 

@@ -13,10 +13,10 @@ constexpr size_t MAX_BYTES = 256 * 1024; // 256KB
 constexpr size_t FREE_LIST_SIZE = MAX_BYTES / ALIGNMENT; // ALIGNMENT等于指针void*的大小
 constexpr size_t PAGE_SIZE = 4096; // 4K页大小
 constexpr size_t PageShift =12;
-constexpr size_t MinSystemAllocPages=128;
+constexpr size_t MinSystemAllocPages=64;
 // 【约束 1】一次性从 PageHeap 批发的总内存，最好别超过一个上限
 //           这个值可以比 ThreadCache 的上限大，比如 128KB
-constexpr size_t MAX_BYTES_PER_SPAN = 128 * 1024; 
+constexpr size_t MAX_BYTES_PER_SPAN = 256 * 1024; 
 
 // 【约束 2】一个 Span 至少能容纳多少个 ThreadCache 的批量？
 //我们希望一个 Span 至少能满足 8 次 ThreadCache 的 fetch 请求

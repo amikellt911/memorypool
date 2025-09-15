@@ -39,7 +39,7 @@ private:
     //void mergeSpan(Span* span);
     //Span* splitSpan(Span* span, size_t num_pages);
 private:
-    static const size_t MaxPages = 128; // 256/4
+    static const size_t MaxPages = 256; // 256/4
     SpanList free_lists_[MaxPages];
     std::unordered_map<size_t, Span*> span_map_;
     std::mutex mutex_;

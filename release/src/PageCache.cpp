@@ -13,6 +13,7 @@ namespace llt_memoryPool
 
     Span* PageCache::mapAddressToSpan(void* ptr)
     { 
+        std::lock_guard<std::mutex> lock(mutex_);
         size_t page_id=reinterpret_cast<size_t>(ptr)>>PageShift;
         auto it=span_map_.find(page_id);
         if(it!=span_map_.end())
@@ -52,22 +53,34 @@ namespace llt_memoryPool
         }
         else{
             span=sp->begin();
+            //多线程的bug，搞了一下午了，就是没有删除这个freelist里面的这个
+            sp->erase(span);
         }
 
-        if(span->num_pages>=numPages)
+        if(span->num_pages > numPages)
         {
             Span* remain_span=new Span();
             char* address_=static_cast<char*>(span->start_address);
             remain_span->num_pages=span->num_pages-numPages;
             remain_span->start_address=address_+numPages*PAGE_SIZE;
             span->num_pages=numPages;
-            size_t start_pages=AddressToPageID(span->start_address);
+
+            // 更新被拆分出去的 span 的映射
+            size_t start_page=AddressToPageID(span->start_address);
+            for(size_t i=0;i<span->num_pages;i++)
+            {
+                span_map_[start_page+i]=span;
+            }
+
+            // 更新 remain_span 的映射
+            size_t remain_start_page=AddressToPageID(remain_span->start_address);
             for(size_t i=0;i<remain_span->num_pages;i++)
             {
-                span_map_[start_pages+numPages+i]=remain_span;
+                span_map_[remain_start_page+i]=remain_span;
             }
-            if(remain_span->num_pages>0)
-            free_lists_[remain_span->num_pages-1].push_front(remain_span);
+            
+            if(remain_span->num_pages > 0 && remain_span->num_pages <= MaxPages)
+                free_lists_[remain_span->num_pages-1].push_front(remain_span);
         }
         return span;
     }
@@ -107,6 +120,7 @@ namespace llt_memoryPool
             char* prev_address=static_cast<char*>(prev_span->start_address);
             if(prev_span->location==false&&prev_address+prev_span->num_pages*PAGE_SIZE==current_address)
             {
+                //std::cout<<"prev_span->location=="<<prev_span->location<<std::endl;
                 free_lists_[prev_span->num_pages-1].erase(prev_span);
                 //归还的时候，它还不在空闲列表中
                 // free_lists_[ptr->num_pages-1].erase(ptr);
@@ -127,7 +141,7 @@ namespace llt_memoryPool
         { 
             Span* next_span=it->second;
             char* next_address=static_cast<char*>(next_span->start_address);
-            if(next_span->location==false&&next_address==current_address+ptr->num_pages*PAGE_SIZE)
+            if(next_span->location==false&&next_address==current_address+ptr->num_pages*PAGE_SIZE && (ptr->num_pages + next_span->num_pages <= MaxPages))
             {
                 free_lists_[next_span->num_pages-1].erase(next_span);
                 ptr->num_pages+=next_span->num_pages;
@@ -142,6 +156,8 @@ namespace llt_memoryPool
         ptr->use_count=0;
         ptr->objects=nullptr;
         ptr->size_class=0;
+        if(ptr->num_pages>MaxPages)
+            ptr->num_pages=MaxPages;
         free_lists_[ptr->num_pages-1].push_front(ptr);
     } 
     
