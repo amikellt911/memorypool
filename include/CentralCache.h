@@ -32,6 +32,7 @@ private:
     //mutex是不可拷贝的，而array的默认构造又必须要拷贝，所以有问题，所以可以从指针间接持有
     std::array<SpanList*, FREE_LIST_SIZE> span_lists_;
     std::array<std::mutex, FREE_LIST_SIZE> span_lists_mutex_;
+    std::array<std::mutex, FREE_LIST_SIZE> span_lists_mutex_2;
 };
 
 } // namespace llt_memoryPool

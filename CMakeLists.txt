@@ -34,26 +34,17 @@ add_executable(perf_test
     ${TEST_DIR}/PerformanceTest.cpp
 )
 
-add_executable(perf_test_aggressive
-    ${SOURCES}
-    ${TEST_DIR}/perf_test_aggressive.cpp
-)
 
 # 确保所有可执行文件找到include目录
 target_include_directories(unit_test PRIVATE ${INC_DIR})
 target_include_directories(perf_test PRIVATE ${INC_DIR})
-target_include_directories(perf_test_aggressive PRIVATE ${INC_DIR})
 
 # 链接pthread库
 target_link_libraries(unit_test PRIVATE Threads::Threads)
 target_link_libraries(perf_test PRIVATE Threads::Threads)
-target_link_directories(perf_test_aggressive PRIVATE Threads::Threads)
+
 
 # 添加测试命令
-add_custom_target(perf_aggressive
-    COMMAND ./perf_test_aggressive
-    DEPENDS perf_test_aggressive
-)
 
 add_custom_target(test
     COMMAND ./unit_test

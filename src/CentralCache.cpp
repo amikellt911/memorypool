@@ -28,10 +28,12 @@ CentralCache::~CentralCache()
 
 size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t batchNum)
 {
-    std::lock_guard<std::mutex> lock(span_lists_mutex_[index]);
+    
     size_t fetchNum = 0;
     SpanList& sp=*span_lists_[index];
     Span* target_span=nullptr;
+    std::lock_guard<std::mutex> lock(span_lists_mutex_[index]);
+    //span_lists_mutex_[index].lock();
     for(Span* span=sp.begin();span!=sp.end();span=span->next)
     {
         if(!span->isFull())
@@ -40,10 +42,13 @@ size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t bat
             break;
         }
     }
+    //span_lists_mutex_[index].unlock();
     if(target_span==nullptr)
     {
         size_t num_pages=SizeClass::getPages(index);
+        //解锁？
         target_span = PageCache::getInstance().allocateSpan(num_pages);
+        //target_span->lock_.lock();
         target_span->size_class=index;
         if(target_span==nullptr)
         {
@@ -60,8 +65,13 @@ size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t bat
             head=current;
         }
         target_span->objects=head;
+        //target_span->lock_.unlock();
+        //span_lists_mutex_[index].lock();
         sp.push_front(target_span);
+        //span_lists_mutex_[index].unlock();
     }
+    //span_lists_mutex_[index].unlock();
+    //target_span->lock_.lock();
     fetchNum=std::min(target_span->getFreeObjects(),batchNum);
     start=target_span->objects;
     end=start;
@@ -91,8 +101,9 @@ size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t bat
 
     target_span->use_count+=fetchNum;
     target_span->location=true;
+    //target_span->lock_.unlock();
     if(target_span->isFull())
-    {
+    {   
         sp.erase(target_span);
         sp.push_back(target_span);
     }
@@ -102,13 +113,14 @@ size_t CentralCache::fetchRange(void*& start,void*& end,size_t index, size_t bat
 void CentralCache::releaseListToSpans(void* start, size_t size, size_t bytes)
 {
     int index=SizeClass::getIndex(bytes);
-    std::lock_guard<std::mutex> lock(span_lists_mutex_[index]);
     SpanList& sp=*span_lists_[index];
     void* current=start;
+    std::lock_guard<std::mutex> lock(span_lists_mutex_[index]);
     while(current!=nullptr)
     {
         void* next=*reinterpret_cast<void**>(current);
         Span* span=PageCache::getInstance().mapAddressToSpan(current);
+        //span->lock_.lock();
         assert(index==span->size_class);
         if(span==nullptr)
         {
@@ -117,7 +129,10 @@ void CentralCache::releaseListToSpans(void* start, size_t size, size_t bytes)
         *static_cast<void**>(current)=span->objects;
         span->objects=current;
         span->use_count--;
+        span->lock_.unlock();
         if(span->use_count==0){
+            //std::lock_guard<std::mutex> lock(span_lists_mutex_[index]);
+            //std::lock_guard<std::mutex> lock1(span->lock_);
             sp.erase(span);
             span->objects=nullptr;
             span->size_class=0;

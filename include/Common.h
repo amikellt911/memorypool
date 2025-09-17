@@ -102,6 +102,8 @@ struct Span{
     //index等级
     size_t size_class=0;
     size_t use_count=0;
+    //锁
+    std::mutex lock_;
 
     size_t getTotalObjects()
     {
@@ -114,6 +116,7 @@ struct Span{
     }
     bool isFull()
     {
+        std::lock_guard lg(lock_);
         return getFreeObjects()==0;
     }
 };
